@@ -11,7 +11,7 @@
 #include <sys/sem.h>
 #include <sys/msg.h>
 
-#define POP_SIZE 1
+#define POP_SIZE 2
 #define DEBUG 0
 #define TEST_ERROR if(errno){\
         dprintf(STDERR_FILENO,"%s:%d: PID=%5d: Error %d (%s)\n", \
@@ -27,6 +27,7 @@ struct studente{
   pid_t matr;
   int accettato;
   int vote;
+  int pref;
 };
 struct shared_data{
   int i;
@@ -44,3 +45,5 @@ void aexit();
 void signal_handler(int signalvalue);
 void att(int);
 void sig(int);
+void refuse();
+void accept();
