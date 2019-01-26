@@ -17,8 +17,7 @@
         dprintf(STDERR_FILENO,"%s:%d: PID=%5d: Error %d (%s)\n", \
 					       __FILE__, __LINE__, getpid(), errno, strerror(errno));}
 
-int i, j, cont, val, msgid, pref, ninvits, nrejects, sim_time, status, voto, semid, shrmem, mid = 0;
-char *str, **args;
+int id, i, j, cont, indx, val, msgid, pref, ninvits, nrejects, sim_time, status, voto, semid, shrmem, mid = 0;
 pid_t pid;
 sigset_t my_mask;
 struct sigaction sa, saold;
@@ -30,19 +29,18 @@ struct studente{
   int pref;
 };
 struct shared_data{
-  int i;
   struct studente info[POP_SIZE];
   int lett;
 };
 struct shared_data* sh_data;
 struct msgbuf{
-  pid_t mtype; //type of message
-  pid_t mint; //message text
+  pid_t mtype;
+  pid_t mint;
 };
 struct msgbuf msg;
 void openipc();
 void aexit();
-void signal_handler(int signalvalue);
+void signal_handler(int);
 void att(int);
 void sig(int);
 void refuse();

@@ -9,21 +9,20 @@ int main(int argc, char *argv[]){
   srand(pid);
   pref = prob[rand()%100];
   voto = rand()%13+18;
+  indx = pid%POP_SIZE;
   att(0);
   att(1);
-  sh_data->info[sh_data->i].matr = pid;
-  sh_data->info[sh_data->i].vote = voto;
-  sh_data-> info[sh_data->i].pref = pref;
-  sh_data-> info[sh_data->i].accettato=0;
-  sh_data->i++;
+  sh_data->info[indx].matr = pid;
+  sh_data->info[indx].vote = voto;
+  sh_data-> info[indx].pref = pref;
+  sh_data-> info[indx].accettato = 0;
   sig(1);
   op.sem_num = 0;
   op.sem_op = 0;
   semop(semid, &op, 1);//waiting all
-  int contatti[pref]={0};
+  int contatti[pref];
   j=0;
   while(1){
-	//ricevo
     while(msgrcv(mid, &msg, sizeof(msg), 0, 0) != -1){
       if(sh_data->info[i].accettato == 0 && msg.mtype == 1){
         if(nrejects==0){
@@ -39,9 +38,9 @@ int main(int argc, char *argv[]){
         for(i=0; i<POP_SIZE; ++i){
           if(sh_data->info[i].matr%2 == msg.mint%2){
             if(sh_data->info[i].vote > voto){
-               accept();
+              accept();
             }else{
-			   refuse();
+  		        refuse();
             }
           }
         }
@@ -52,48 +51,47 @@ int main(int argc, char *argv[]){
         }
         sig(1);
       }
-      label: if(msg.mtype == 2){
-       att(2);
-       att(1);
-       for(i=0; i<POP_SIZE; ++i){
-         if(msg.mint == sh_data->info[i].matr || pid == sh_data->info[i].matr){
-           sh_data->info[i].accettato=1;
-         }
+      label:
+      if(msg.mtype == 2){
+        att(2);
+        att(1);
+        for(i=0; i<POP_SIZE; ++i){
+          if(msg.mint == sh_data->info[i].matr || pid == sh_data->info[i].matr){
+          sh_data->info[i].accettato=1;
+          }
+        }
+        sig(1);
+        sig(2);
+        msg.mtype = pid;
+        msgsnd(msgid, &msg, sizeof(msg), 0); //scrivo al professore
+        TEST_ERROR;
+      }
+      if(msg.mtype == 3){
+  		   if(msg.mint == pid) printf("\tSono stato rifiutato(%d)\n", pid);
        }
-      sig(1);
-      sig(2);
-      msg.mtype = pid;
-      msgsnd(msgid, &msg, sizeof(msg), 0); //scrivo al professore
-      TEST_ERROR;
-     }
-     if(msg.mtype == 3){
-		if(msg.mint == pid) printf("\tSono stato rifiutato(%d)\n", pid);
-     }
-     if(sh_data->info[i].accettato == 1){
-       refuse();
-     }
-   }
-   //invito
-   while(sh_data->info[i].accettato == 0 && ninvites!=0){
+      if(sh_data->info[i].accettato == 1){
+         refuse();
+       }
+    }
+    while(sh_data->info[i].accettato == 0 && ninvits!=0){
 	 for(i=0; i<POP_SIZE; ++i){
 		if(pid%2 == sh_data->info[i].matr%2){
-			if(pref<=sh_data->info[i].pref){
-				contatti[j++]= sh_data-> info[sh_data->i].matr;
-				if(j==invites) break;
+			if(pref <= sh_data->info[i].pref){
+				contatti[j++]= sh_data->info[i].matr;
+				if(j==ninvits) break;
 			}
 		}
-	 }
-	 msg.mtype=1;
-     msg.mint=pid;
+	}
+	msg.mtype=1;
+  msg.mint=pid;
 	 for(i=0; i<j; ++i){
-		 id = msgget(contatti[i], IPC_CREAT);
-		 TEST_ERROR;
-		 msgsnd(id, &msg, sizeof(msg), 0);
-		 --nvites;
+		id = msgget(contatti[i], IPC_CREAT);
+		TEST_ERROR;
+		msgsnd(id, &msg, sizeof(msg), 0);
+		--ninvits;
 	 }
-   }
- }
-  shmdt(sh_data);
+  }
+  }
   TEST_ERROR;
   exit(voto);
 }
@@ -115,17 +113,16 @@ void refuse(){
   msgsnd(msg.mint, &msg, sizeof(msg), 0);
   TEST_ERROR;
 }
-void accepted(){
+void accept(){
   id = msg.mtype;
   msg.mtype = 2;
   msg.mint = pid;
   msgsnd(id, &msg, sizeof(msg), 0);
   TEST_ERROR;
 }
-
 void read_config(){
   FILE* f = fopen("file.config", "r");
-  int i, j = 0;
+  i, j = 0;
   char s[10];
   while(fscanf(f, "%s", s) != -1){
     if(i%2==1){
@@ -142,15 +139,14 @@ void read_config(){
   cont = npref[j=0];
   for(i=0; i<100; ++i){
     if(i==cont){
-        val++;
-        cont += npref[++j];
-      }
+      val++;
+      cont += npref[++j];
+    }
     prob[i]=val;
   }
   TEST_ERROR;
   fclose(f);
 }
-
 void openipc(){
   msgid = msgget(getppid(), IPC_CREAT);//msgqueue
   TEST_ERROR;
@@ -162,4 +158,13 @@ void openipc(){
   TEST_ERROR;
   sh_data = (struct shared_data*)shmat(shrmem, NULL, 0);//shrmem attacched
   TEST_ERROR;
+}
+void signal_handler(signalvalue){
+  switch (signalvalue){
+    case SIGTERM:{
+        shmdt(sh_data);
+        msgctl(mid, IPC_RMID, NULL);
+    }
+    default: exit(EXIT_SUCCESS);
+  }
 }

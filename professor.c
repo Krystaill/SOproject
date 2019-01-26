@@ -1,11 +1,11 @@
 #include "libs_structs.h"
 struct gruppo{
-  int i;
   pid_t capo;
-  pid_t compagni[pref];
+  pid_t compagni[3];
   int voto;
 };
-int main(int argc, char const *argv[]) {
+struct gruppo gruppi[POP_SIZE];
+int main(int argc, char const *argv[]){
   atexit(aexit);
   sigemptyset(&my_mask); //Do not mask any signal
 	sa.sa_mask = my_mask;
@@ -27,24 +27,17 @@ int main(int argc, char const *argv[]) {
   printf("Sono tutti sulla linea di partenza\n");
   for(i=0;  i < POP_SIZE; i++) {
     TEST_ERROR;
-    //sprintf(str, "%s", sh_data->info[i].name);
-    //printf("\t%d %d\n", sh_data->info[i].matr, sh_data->info[i].vote);
   }
   TEST_ERROR;
-  while(msgrcv(msgid, &msg, 32, 0, IPC_NOWAIT)){
-      //printf("\t%d %d\n", msg.mtype, atoi(msg.mtext));
+  while(msgrcv(msgid, &msg, sizeof(msg), 0, 0) != -1){
+
   }
-  printf("\n");
-  TEST_ERROR;
-  exit(EXIT_SUCCESS);
 }
 
 void openipc(){
   msgid = msgget(getpid(), IPC_CREAT|0666);//mmsgqueue
   semid = semget(getpid(), 4, IPC_CREAT|0666);//sems set
   shrmem = shmget(getpid(), sizeof(struct shared_data), IPC_CREAT|0666);//shrmem area
-  shrlett = shmget(getpid(), sizeof(int), IPC_CREAT|0666);//shrmem area 1
-  lett = (int *)shmat(shrlett, NULL, 0);//shrmem1 attacched
   sh_data = (struct shared_data*)shmat(shrmem, NULL, 0);//shrmem attacched
   semctl(semid, 0, SETVAL, POP_SIZE);
   semctl(semid, 1, SETVAL, 1);
@@ -54,20 +47,32 @@ void openipc(){
 }
 
 void aexit(){
-  sleep(2);
-  for(i=0; i < POP_SIZE; ++i) printf("\tWaited:%d with score:%d\n", wait(&status), WEXITSTATUS(status));
-  semctl(semid, 2, IPC_RMID);
+  //for(i=0; i < POP_SIZE; ++i) printf("\tWaited:%d with score:%d\n", wait(&status), WEXITSTATUS(status));
+  semctl(semid, 4, IPC_RMID);
   free(str);
   shmctl(shrmem, IPC_RMID , NULL);
-  shmctl(shrlett, IPC_RMID , NULL);
   msgctl(msgid, IPC_RMID, NULL);
 }
 
 void signal_handler(int signalvalue){
   switch(signalvalue){
-    case SIGUSR1:{
-      printf("\thandle signal\n");
-      break;
+    case SIGALRM:{
+      printf("\thandle alarm signal\n");
+      for(i=0; i<POP_SIZE; ++i){
+        kill(sh_data->info[i], SIGTERM);
+        TEST_ERROR;
+      }
+      for(i=0; i<POP_SIZE; ++i){
+        wait(&status);
+        TEST_ERROR;
+      }
+      semctl(semid, 4, IPC_RMID);
+      free(str);
+      shmctl(shrmem, IPC_RMID , NULL);
+      msgctl(msgid, IPC_RMID, NULL);
+      printf("-_-_-\tEND_SIMULATION\t-_-_-\n");
+      exit(EXIT_SUCCESS);
     }
+    default: break;
   }
 }
