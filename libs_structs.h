@@ -10,15 +10,14 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/msg.h>
-
-#define POP_SIZE 15
-#define DEBUG 0
+#define POP_SIZE 20
+#define K0 44
+#define K1 33
 #define TEST_ERROR if(errno){\
         dprintf(STDERR_FILENO,"%s:%d: PID=%5d: Error %d (%s)\n", \
 					       __FILE__, __LINE__, getpid(), errno, strerror(errno));}
-
-int id, i, j, cont, indx, val, msgid, pref, ninvits, nrejects, sim_time, status, voto, semid, shrmem, mid = 0;
-pid_t pid;
+int id, i, j, cont, indx, val, msgid, pref, ninvits, nrejects, status, voto, semid, shrmem, mid, mid0, mid1 = 0;
+pid_t pid, pidcapo = 0;
 sigset_t my_mask;
 struct sigaction sa, saold;
 struct sembuf op;
@@ -28,14 +27,22 @@ struct studente{
   int vote;
   int pref;
 };
+struct gruppo{
+  pid_t compagni[4];
+  int voto;
+  int chiuso;
+  int cont;
+};
 struct shared_data{
   struct studente info[POP_SIZE];
-  int lett;
+  struct gruppo gruppi[POP_SIZE];
+  int ngruppi;
 };
 struct shared_data* sh_data;
 struct msgbuf{
-  pid_t mtype;
-  pid_t mint;
+  long mtype; //to who
+  int mode; //mode
+  pid_t mpid; //from who
 };
 struct msgbuf msg;
 void init();
@@ -46,3 +53,4 @@ void att(int);
 void sig(int);
 void refuse();
 void accept();
+void read_config();
