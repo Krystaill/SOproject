@@ -1,5 +1,5 @@
 #include "libs_structs.h"
-#define POP_SIZE 20
+#define POP_SIZE 500
 int main(int argc, char const *argv[]){
   pid = getpid();
   init();
@@ -10,7 +10,7 @@ int main(int argc, char const *argv[]){
       TEST_ERROR;
     }
   }
-  alarm(8);
+  alarm(10);
   while(msgrcv(msgid, &msg, sizeof(msg)-sizeof(long), 0, 0) == sizeof(msg)-sizeof(long)){
     printf("\nRICEVUTO MSG:\t (%d) ha chiuso il gruppo[%d]\n", (int)msg.mtype, (int)msg.mtype%POP_SIZE);
   }
@@ -44,6 +44,15 @@ void aexit(){
   for(i=0; i<POP_SIZE; i++){
     wait(&status);
   }
+  printf("\n\t_-_-_-MEDIA_STUDENTI-_-_-_\n\n");
+  int cont=0;
+  for(j=18; j<=30; j++){
+    for(i=0; i<POP_SIZE; ++i){
+      if(sh_data->info[i].vote == j) cont++;
+    }
+    if(cont) printf("media studenti:%d con voto:%d\n", cont, j);
+    cont = 0;
+  }
   printf("\n-_-_-_END_SIMULATION_-_-_-\n");
 }
 void signal_handler(int signalvalue){
@@ -52,8 +61,10 @@ void signal_handler(int signalvalue){
       semctl(semid, 0, SETVAL, POP_SIZE);
       printf("\n\t_-_-_-GRUPPI-_-_-_\n");
       for(i=0; i<POP_SIZE; i++){
-        sig(1);
         kill(sh_data->info[i].matr, SIGINT);
+      }
+      for(i=0; i<POP_SIZE; i++){
+        sig(1);
         if(sh_data->info[i].accettato == 0){
           sh_data->gruppi[i].compagni[0] = sh_data->info[i].matr;
           sh_data->gruppi[i].voto = 0;
@@ -63,27 +74,15 @@ void signal_handler(int signalvalue){
         j=0;
         if(sh_data->gruppi[i].compagni[0] != 0){
           while(j<sh_data->gruppi[i].cont){
-            if(j == 0) printf("\ncapo: %d ", sh_data->gruppi[i].compagni[j]);
+            if(j == 0) printf("\ncapo: %d", sh_data->gruppi[i].compagni[j]);
             if(j > 0) printf("\tcompagno[%d]: %d ", j, sh_data->gruppi[i].compagni[j]);
             if(sh_data->gruppi[i].chiuso == 1 && sh_data->info[sh_data->gruppi[i].compagni[j]%POP_SIZE].pref != sh_data->gruppi[i].cont){
               sh_data->gruppi[i].voto -= 3;
             }
             j++;
-            /*if (j == sh_data->gruppi[i].cont){
-              if(sh_data->gruppi[i].voto > 17) printf("\tvoto finale_%d\n", sh_data->gruppi[i].voto);
-              else printf("\tvoto finale_BOCCIATO\n");
-            }*/
           }
         }
-      }
-      printf("\n\t_-_-_-MEDIA_STUDENTI-_-_-_\n");
-      int cont=0;
-      for(j=18; j<=30; j++){
-        for(i=0; i<POP_SIZE; ++i){
-          if(sh_data->info[i].vote == j) cont++;
-        }
-        if(cont) printf("media studenti:%d con voto:%d\n", cont, j);
-        cont = 0;
+        printf("\n");
       }
       printf("\n");
       msgctl(mid0, IPC_RMID, NULL);

@@ -10,7 +10,7 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/msg.h>
-#define POP_SIZE 20
+#define POP_SIZE 500
 #define K0 44
 #define K1 33
 #define TEST_ERROR if(errno){\

@@ -1,5 +1,5 @@
 #include "libs_structs.h"
-#define POP_SIZE 20
+#define POP_SIZE 500
 int npref[3], prob[100] = {0};
 int main(int argc, char *argv[]){
   init();
@@ -13,7 +13,7 @@ int main(int argc, char *argv[]){
       switch(msg.mode){
         case 1:{
           att(1);
-          //printf("\nSono(%d)invitato da_%d\t", pid, msg.mpid);
+          printf("\nSono(%d)invitato da_%d\t", pid, msg.mpid);
           if(sh_data->gruppi[msg.mpid%POP_SIZE].chiuso == 1) refuse();
           else if(ninvits == 0 && sh_data->info[indx].accettato == 0){
             refuse();
@@ -102,13 +102,13 @@ void sig(x){
 }
 void refuse(){
   nrejects--;
-  //printf("RIFIUTO(%d)\n", msg.mpid);
+  printf("RIFIUTO(%d)\n", msg.mpid);
 }
 void accept(){
   sh_data->info[indx].accettato = 1;
   ninvits = 0;
-  //printf("ACCETTO(%d)\n", msg.mpid);
   pidcapo = msg.mpid;
+  printf("ACCETTO(%d)\n", pidcapo);
   msg.mode = 2;
   msg.mtype = msg.mpid;
   msg.mpid = pid;
@@ -173,7 +173,18 @@ void aexit(){
   op.sem_num = 0;
   op.sem_op = 0;
   semop(semid, &op, 1);
-  if(pidcapo) printf("%d voto finale:%d\n", pid, sh_data->gruppi[pidcapo%POP_SIZE].voto);
-  else printf("%d voto finale:BOCCIATO\n", pid);
+  for(i=0; i<POP_SIZE; i++){
+    j=0;
+    if(sh_data->gruppi[i].compagni[0] != 0){
+      while(j<sh_data->gruppi[i].cont){
+        if(sh_data->gruppi[i].compagni[j] == pid){
+          if(sh_data->gruppi[i].voto>17){
+            printf("Matricola %d voto finale_%d\n", pid, sh_data->gruppi[i].voto);
+          }else printf("Matricola %d voto finale_BOCCIATO\n", pid);
+        }
+        j++;
+      }
+    }
+  }
   shmdt(sh_data);
 }
