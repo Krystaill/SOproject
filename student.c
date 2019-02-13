@@ -1,10 +1,10 @@
 #include "libs_structs.h"
-#define POP_SIZE 500
 int npref[3], prob[100] = {0};
+
 int main(int argc, char *argv[]){
   init();
+  att(0);
   i=0;
-  j=ninvits;
   op.sem_num = 0;
   op.sem_op = 0;
   semop(semid, &op, 1);//waiting all
@@ -14,10 +14,7 @@ int main(int argc, char *argv[]){
         case 1:{
           att(1);
           printf("\nSono(%d)invitato da_%d\t", pid, msg.mpid);
-          if(sh_data->gruppi[msg.mpid%POP_SIZE].chiuso == 1) refuse();
-          else if(ninvits == 0 && sh_data->info[indx].accettato == 0){
-            refuse();
-          }
+          if(sh_data->gruppi[msg.mpid%POP_SIZE].chiuso == 1 || ninvits==0) refuse();
           else if(sh_data->info[indx].accettato == 0){
             if(nrejects==0) accept();
             else if(voto <= sh_data->info[msg.mpid%POP_SIZE].vote){
@@ -57,14 +54,14 @@ int main(int argc, char *argv[]){
     msg.mpid = pid;
     att(1);
     while(ninvits>0 && (sh_data->info[indx].accettato == 0 || (sh_data->gruppi[indx].compagni[0] == pid && sh_data->gruppi[indx].chiuso == 0))){
-      if(i==POP_SIZE) i = 0;
-      if(pid%2 == sh_data->info[i].matr%2 && sh_data->info[i].accettato == 0 && sh_data->gruppi[i].compagni[0] == 0 && pid != sh_data->info[i].matr && sh_data->info[i].pref <= pref){
+      if(pid%2 == sh_data->info[i].matr%2 && sh_data->info[i].accettato == 0 && sh_data->gruppi[i].compagni[0] == 0 && pid != sh_data->info[i].matr && sh_data->info[i].pref == pref){
         msg.mtype = sh_data->info[i].matr;
         msg.mode = 1;
         ninvits--;
         if(msgsnd(mid, &msg, sizeof(msg)-sizeof(long), 0) < 0) TEST_ERROR;
       }
       i++;
+      if(i==POP_SIZE) i = 0;
       break;
 	  }
     sig(1);
@@ -80,13 +77,12 @@ void init(){
   pref = prob[rand()%100];
   voto = rand()%13+18;
   indx = pid%POP_SIZE;
-  att(0);
   att(1);
   sh_data->info[indx].matr = pid;
   sh_data->info[indx].vote = voto;
   sh_data->info[indx].pref = pref;
-  sh_data->info[indx].accettato = 0;
   printf("\tStudente #%d\tmatricola %d\tvoto %d\tpreferenza %d\n", indx, pid, voto, pref);
+  sh_data->info[indx].accettato = 0;
   sig(1);
   atexit(aexit);
 }
@@ -105,8 +101,9 @@ void refuse(){
   printf("RIFIUTO(%d)\n", msg.mpid);
 }
 void accept(){
-  sh_data->info[indx].accettato = 1;
   ninvits = 0;
+  sh_data->info[indx].accettato = 1;
+  sh_data->gruppi[indx].chiuso = 1;
   pidcapo = msg.mpid;
   printf("ACCETTO(%d)\n", pidcapo);
   msg.mode = 2;
@@ -128,14 +125,14 @@ void read_config(){
     if(i == 9) nrejects = atoi(s);
     ++i;
   }
-  val = 2;
+  pref = 2;
   cont = npref[j=0];
   for(i=0; i<100; ++i){
     if(i==cont){
-      val++;
+      pref++;
       cont += npref[++j];
     }
-    prob[i]=val;
+    prob[i]=pref;
   }
   TEST_ERROR;
   fclose(f);
@@ -162,9 +159,7 @@ void signal_handler(signalvalue){
   switch (signalvalue){
     case SIGINT:{
       att(1);
-      att(0);
       if(sh_data->gruppi[indx].chiuso == 0 && sh_data->gruppi[indx].compagni[0] == pid) sh_data->gruppi[indx].chiuso=1;
-      //if(msgrcv(msgid, &msg, sizeof(msg)-sizeof(long), pid, 0) == sizeof(msg)-sizeof(long))
       exit(EXIT_SUCCESS);
     }
   }
@@ -179,12 +174,13 @@ void aexit(){
       while(j<sh_data->gruppi[i].cont){
         if(sh_data->gruppi[i].compagni[j] == pid){
           if(sh_data->gruppi[i].voto>17){
-            printf("Matricola %d voto finale_%d\n", pid, sh_data->gruppi[i].voto);
-          }else printf("Matricola %d voto finale_BOCCIATO\n", pid);
+            printf("Matricola %d il mio esito finale_%d\n", pid, sh_data->gruppi[i].voto);
+          }else printf("Matricola %d il mio esito finale_BOCCIATO\n", pid);
         }
         j++;
       }
     }
   }
+  printf("\n");
   shmdt(sh_data);
 }

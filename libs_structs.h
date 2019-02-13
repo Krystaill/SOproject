@@ -10,15 +10,14 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/msg.h>
-#define POP_SIZE 500
+#define POP_SIZE 50
 #define K0 44
 #define K1 33
 #define TEST_ERROR if(errno){\
         dprintf(STDERR_FILENO,"%s:%d: PID=%5d: Error %d (%s)\n", \
 					       __FILE__, __LINE__, getpid(), errno, strerror(errno));}
-int id, i, j, cont, indx, val, msgid, pref, ninvits, nrejects, status, voto, semid, shrmem, mid, mid0, mid1 = 0;
+int i, j, cont, indx, v, msgid, pref, ninvits, nrejects, status, voto, semid, shrmem, mid, mid0, mid1 = 0;
 pid_t pid, pidcapo = 0;
-sigset_t my_mask;
 struct sigaction sa, saold;
 struct sembuf op;
 struct studente{

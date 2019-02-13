@@ -1,5 +1,5 @@
 #include "libs_structs.h"
-#define POP_SIZE 500
+
 int main(int argc, char const *argv[]){
   pid = getpid();
   init();
@@ -10,9 +10,9 @@ int main(int argc, char const *argv[]){
       TEST_ERROR;
     }
   }
-  alarm(10);
+  alarm(12);
   while(msgrcv(msgid, &msg, sizeof(msg)-sizeof(long), 0, 0) == sizeof(msg)-sizeof(long)){
-    printf("\nRICEVUTO MSG:\t (%d) ha chiuso il gruppo[%d]\n", (int)msg.mtype, (int)msg.mtype%POP_SIZE);
+    printf("\n\nRICEVUTO MSG: dice che %d ha chiuso il suo gruppo\n\n", (int)msg.mtype);
   }
 }
 void init(){
@@ -34,36 +34,65 @@ void init(){
   sa.sa_handler = &signal_handler;
   sigaction(SIGALRM, &sa, &saold);
   TEST_ERROR;
-  printf("\n-_-_-INIZIALIONE-_-_-\n\n");
+  printf("\n\t-_-_-INIZIALIONE-_-_-\n\n");
   atexit(aexit);
 }
 void aexit(){
   semctl(semid, 2, IPC_RMID);
   msgctl(msgid, IPC_RMID, NULL);
-  shmctl(shrmem, IPC_RMID , NULL);
   for(i=0; i<POP_SIZE; i++){
     wait(&status);
   }
   printf("\n\t_-_-_-MEDIA_STUDENTI-_-_-_\n\n");
-  int cont=0;
+  int cont, v = 0;
   for(j=18; j<=30; j++){
-    for(i=0; i<POP_SIZE; ++i){
-      if(sh_data->info[i].vote == j) cont++;
-    }
-    if(cont) printf("media studenti:%d con voto:%d\n", cont, j);
     cont = 0;
+    for(i=0; i<POP_SIZE; ++i){
+      if(sh_data->info[i].vote == j){
+        cont++;
+      }
+    }
+    printf("\t#studenti:%d con voto:%d\n", cont, j);
   }
-  printf("\n-_-_-_END_SIMULATION_-_-_-\n");
+  v = 0;
+  for(i=0; i<POP_SIZE; ++i){
+    v+=sh_data->info[i].vote;
+  }
+  printf("\tvoto medio Architettura %d\n\n", v/POP_SIZE);
+  int conts=0;
+  cont = 0;
+  v = 0;
+  for(j=18; j<=30; j++){
+    cont = 0;
+    for(i=0; i<POP_SIZE; ++i){
+      if(sh_data->gruppi[i].voto == j){
+        cont += sh_data->gruppi[i].cont;
+      }
+    }
+    printf("\t#studenti:%d con voto:%d\n", cont, j);
+  }
+  cont = 0;
+  v=0;
+  for(i=0; i<POP_SIZE; ++i){
+    if(sh_data->gruppi[i].cont>0 && sh_data->gruppi[i].voto >0){
+      v += sh_data->gruppi[i].voto;
+      cont++;
+      //printf("cont %d voto%d (tempmedia:%d)\n", cont, v, v/cont);
+    }
+  }
+  printf("\tvoto medio SO %d\n", v/cont);
+  printf("\n\t-_-_-_END_SIMULATION_-_-_-\n");
+  shmctl(shrmem, IPC_RMID , NULL);
 }
 void signal_handler(int signalvalue){
   switch(signalvalue){
     case SIGALRM:{
+      sleep(1);
       semctl(semid, 0, SETVAL, POP_SIZE);
+      printf("\n");
       printf("\n\t_-_-_-GRUPPI-_-_-_\n");
       for(i=0; i<POP_SIZE; i++){
         kill(sh_data->info[i].matr, SIGINT);
-      }
-      for(i=0; i<POP_SIZE; i++){
         sig(1);
         if(sh_data->info[i].accettato == 0){
           sh_data->gruppi[i].compagni[0] = sh_data->info[i].matr;
@@ -74,19 +103,19 @@ void signal_handler(int signalvalue){
         j=0;
         if(sh_data->gruppi[i].compagni[0] != 0){
           while(j<sh_data->gruppi[i].cont){
-            if(j == 0) printf("\ncapo: %d", sh_data->gruppi[i].compagni[j]);
-            if(j > 0) printf("\tcompagno[%d]: %d ", j, sh_data->gruppi[i].compagni[j]);
+            if(j == 0) printf("\n\tcapo: %d", sh_data->gruppi[i].compagni[j]);
+            if(j > 0) printf(" compagno[%d]: %d ", j, sh_data->gruppi[i].compagni[j]);
             if(sh_data->gruppi[i].chiuso == 1 && sh_data->info[sh_data->gruppi[i].compagni[j]%POP_SIZE].pref != sh_data->gruppi[i].cont){
               sh_data->gruppi[i].voto -= 3;
             }
             j++;
           }
         }
-        printf("\n");
       }
       printf("\n");
       msgctl(mid0, IPC_RMID, NULL);
       msgctl(mid1, IPC_RMID, NULL);
+      printf("\n");
       exit(EXIT_SUCCESS);
     }
   }
