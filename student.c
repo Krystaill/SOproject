@@ -1,73 +1,43 @@
 #include "libs_structs.h"
 int npref[3], prob[100] = {0};
-
 int main(int argc, char *argv[]){
   init();
   att(0);
   i=0;
   op.sem_num = 0;
   op.sem_op = 0;
-  semop(semid, &op, 1);//waiting all
+  semop(semid, &op, 1);
   while(1){
     while(msgrcv(mid, &msg, sizeof(msg)-sizeof(long), pid, IPC_NOWAIT) == sizeof(msg)-sizeof(long)){
-      switch(msg.mode){
-        case 1:{
-          att(1);
-          printf("\nSono(%d)invitato da_%d\t", pid, msg.mpid);
-          if(sh_data->gruppi[msg.mpid%POP_SIZE].chiuso == 1 || ninvits==0) refuse();
-          else if(sh_data->info[indx].accettato == 0){
-            if(nrejects==0) accept();
-            else if(voto <= sh_data->info[msg.mpid%POP_SIZE].vote){
-              accept();
-            }else{
-      		    refuse();
-            }
-          }else refuse();
-          sig(1);
-          break;
+      att(1);
+      printf("\nSono(%d)\t", pid);
+      if(sh_data->info[indx].accettato == 0){
+        if(nrejects==0) accept();
+        else if(voto <= sh_data->info[msg.mpid%POP_SIZE].vote){
+          accept();
+        }else{
+      	  refuse();
         }
-        case 2:{
-          att(1);
-          if(sh_data->gruppi[indx].chiuso == 0){
-            sh_data->info[indx].accettato = 1;
-            if(sh_data->gruppi[indx].cont == 0){
-              sh_data->gruppi[indx].compagni[sh_data->gruppi[indx].cont++] = pid;
-              sh_data->gruppi[indx].voto = sh_data->info[indx].vote;
-              sh_data->gruppi[indx].compagni[sh_data->gruppi[indx].cont++] = msg.mpid;
-            }else if(sh_data->gruppi[indx].cont > 0 && sh_data->gruppi[indx].cont <= pref){
-              sh_data->gruppi[indx].compagni[sh_data->gruppi[indx].cont++] = msg.mpid;
-              if(sh_data->gruppi[indx].voto < sh_data->info[msg.mpid%POP_SIZE].vote)
-                sh_data->gruppi[indx].voto = sh_data->info[msg.mpid%POP_SIZE].vote;
-            }
-            if(sh_data->gruppi[indx].cont == pref){
-              sh_data->gruppi[indx].chiuso = 1;
-              ninvits=0;
-              if(msgsnd(msgid, &msg, sizeof(msg)-sizeof(long), 0) < 0) TEST_ERROR;
-            }
-          }
-          sig(1);
-          break;
-        }
-        default: break;
-      }
+      }else if(nrejects>0 && sh_data->info[msg.mpid%POP_SIZE].pref == pref) accept();
+      else if(ninvits==0) refuse();
+      else refuse();
+      sig(1);
+      break;
     }
     msg.mpid = pid;
-    att(1);
-    while(ninvits>0 && (sh_data->info[indx].accettato == 0 || (sh_data->gruppi[indx].compagni[0] == pid && sh_data->gruppi[indx].chiuso == 0))){
-      if(pid%2 == sh_data->info[i].matr%2 && sh_data->info[i].accettato == 0 && sh_data->gruppi[i].compagni[0] == 0 && pid != sh_data->info[i].matr && sh_data->info[i].pref == pref){
+    if(ninvits>0 && (sh_data->info[indx].accettato == 0 || (sh_data->gruppi[indx].compagni[0] == pid && sh_data->gruppi[indx].chiuso == 0))){
+      att(1);
+      if(pid%2 == sh_data->info[i].matr%2 && sh_data->info[i].accettato == 0 && sh_data->gruppi[i].compagni[0] == 0 && pid != sh_data->info[i].matr && sh_data->info[i].pref<=pref){
         msg.mtype = sh_data->info[i].matr;
-        msg.mode = 1;
         ninvits--;
         if(msgsnd(mid, &msg, sizeof(msg)-sizeof(long), 0) < 0) TEST_ERROR;
       }
+      sig(1);
       i++;
       if(i==POP_SIZE) i = 0;
-      break;
 	  }
-    sig(1);
   }
   exit(EXIT_SUCCESS);
-
 }
 
 void init(){
@@ -101,15 +71,28 @@ void refuse(){
   printf("RIFIUTO(%d)\n", msg.mpid);
 }
 void accept(){
-  ninvits = 0;
-  sh_data->info[indx].accettato = 1;
-  sh_data->gruppi[indx].chiuso = 1;
-  pidcapo = msg.mpid;
-  printf("ACCETTO(%d)\n", pidcapo);
-  msg.mode = 2;
-  msg.mtype = msg.mpid;
-  msg.mpid = pid;
-  if(msgsnd(mid, &msg, sizeof(msg)-sizeof(long), 0) < 0) TEST_ERROR;
+  pidcapo = msg.mpid%POP_SIZE;
+  if(sh_data->gruppi[pidcapo].chiuso == 0){
+    ninvits = 0;
+    sh_data->gruppi[indx].chiuso = 1;
+    sh_data->info[indx].accettato = 1;
+    sh_data->info[pidcapo].accettato = 1;
+    if(sh_data->gruppi[pidcapo].cont == 0){
+      sh_data->gruppi[pidcapo].compagni[sh_data->gruppi[pidcapo].cont++] = pid;
+      sh_data->gruppi[pidcapo].voto = sh_data->info[pidcapo].vote;
+      sh_data->gruppi[pidcapo].compagni[sh_data->gruppi[pidcapo].cont++] = msg.mpid;
+    }else if(sh_data->gruppi[pidcapo].cont <= sh_data->info[pidcapo].pref){
+      sh_data->gruppi[pidcapo].compagni[sh_data->gruppi[pidcapo].cont++] = msg.mpid;
+      if(sh_data->gruppi[pidcapo].voto < voto)
+        sh_data->gruppi[pidcapo].voto = voto;
+    }
+    if(sh_data->gruppi[pidcapo].cont == sh_data->info[pidcapo].pref){
+      sh_data->gruppi[pidcapo].chiuso = 1;
+      ninvits=0;
+      if(msgsnd(msgid, &msg, sizeof(msg)-sizeof(long), 0) < 0) TEST_ERROR;
+    }
+    printf("ACCETTO(%d)\n", msg.mpid);
+  }else refuse();
 }
 void read_config(){
   FILE* f = fopen("file.config", "r");
@@ -140,7 +123,7 @@ void read_config(){
 void openipc(){
   sa.sa_handler = &signal_handler;
   sigaction(SIGINT, &sa, &saold);
-  msgid = msgget(getppid(), IPC_CREAT);//msgqueue
+  msgid = msgget(getppid(), IPC_CREAT);
   TEST_ERROR;
   if(pid%2){
     mid = msgget(K1, 0666);
@@ -148,18 +131,18 @@ void openipc(){
     mid = msgget(K0, 0666);
   }
   TEST_ERROR;
-  semid = semget(getppid(), 0, IPC_CREAT);//sems set
+  semid = semget(getppid(), 0, IPC_CREAT);
   TEST_ERROR;
-  shrmem = shmget(getppid(), 0, IPC_CREAT);//shrmem area
+  shrmem = shmget(getppid(), 0, IPC_CREAT);
   TEST_ERROR;
-  sh_data = (struct shared_data*)shmat(shrmem, NULL, 0);//shrmem attacched
+  sh_data = (struct shared_data*)shmat(shrmem, NULL, 0);
   TEST_ERROR;
 }
 void signal_handler(signalvalue){
   switch (signalvalue){
     case SIGINT:{
-      att(1);
       if(sh_data->gruppi[indx].chiuso == 0 && sh_data->gruppi[indx].compagni[0] == pid) sh_data->gruppi[indx].chiuso=1;
+      att(0);
       exit(EXIT_SUCCESS);
     }
   }

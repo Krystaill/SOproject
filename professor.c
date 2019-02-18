@@ -1,5 +1,4 @@
 #include "libs_structs.h"
-
 int main(int argc, char const *argv[]){
   pid = getpid();
   init();
@@ -10,18 +9,22 @@ int main(int argc, char const *argv[]){
       TEST_ERROR;
     }
   }
-  alarm(12);
+  op.sem_num = 0;
+  op.sem_op = 0;
+  semop(semid, &op, 1);
+  semctl(semid, 0, SETVAL, POP_SIZE);
+  alarm(7);
   while(msgrcv(msgid, &msg, sizeof(msg)-sizeof(long), 0, 0) == sizeof(msg)-sizeof(long)){
     printf("\n\nRICEVUTO MSG: dice che %d ha chiuso il suo gruppo\n\n", (int)msg.mtype);
   }
 }
 void init(){
-  mid0 = msgget(K0, IPC_CREAT|0666);//mmsgqueue
-  mid1 = msgget(K1, IPC_CREAT|0666);//mmsgqueue
-  msgid = msgget(pid, IPC_CREAT|0666);//mmsgqueue
-  semid = semget(pid, 2, IPC_CREAT|0666);//sems set
-  shrmem = shmget(pid, sizeof(struct shared_data), IPC_CREAT|0666);//shrmem area
-  sh_data = (struct shared_data*)shmat(shrmem, NULL, 0);//shrmem attacched
+  mid0 = msgget(K0, IPC_CREAT|0666);
+  mid1 = msgget(K1, IPC_CREAT|0666);
+  msgid = msgget(pid, IPC_CREAT|0666);
+  semid = semget(pid, 2, IPC_CREAT|0666);
+  shrmem = shmget(pid, sizeof(struct shared_data), IPC_CREAT|0666);
+  sh_data = (struct shared_data*)shmat(shrmem, NULL, 0);
   for(i=0; i<POP_SIZE; i++){
     sh_data->gruppi[i].voto = 0;
     sh_data->gruppi[i].chiuso = 0;
@@ -77,23 +80,21 @@ void aexit(){
     if(sh_data->gruppi[i].cont>0 && sh_data->gruppi[i].voto >0){
       v += sh_data->gruppi[i].voto;
       cont++;
-      //printf("cont %d voto%d (tempmedia:%d)\n", cont, v, v/cont);
     }
   }
-  printf("\tvoto medio SO %d\n", v/cont);
-  printf("\n\t-_-_-_END_SIMULATION_-_-_-\n");
+  if(cont) printf("\tvoto medio Sistemi Op %d\n", v/cont);
+  else printf("\tvoto medio Sistemi Op %d\n", 0);
+  printf("\n\t-_-_-_END_SIMULATION_-_-_-\n\n");
   shmctl(shrmem, IPC_RMID , NULL);
 }
 void signal_handler(int signalvalue){
   switch(signalvalue){
     case SIGALRM:{
       sleep(1);
-      semctl(semid, 0, SETVAL, POP_SIZE);
       printf("\n");
       printf("\n\t_-_-_-GRUPPI-_-_-_\n");
       for(i=0; i<POP_SIZE; i++){
         kill(sh_data->info[i].matr, SIGINT);
-        sig(1);
         if(sh_data->info[i].accettato == 0){
           sh_data->gruppi[i].compagni[0] = sh_data->info[i].matr;
           sh_data->gruppi[i].voto = 0;

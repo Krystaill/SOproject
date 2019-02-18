@@ -39,9 +39,8 @@ struct shared_data{
 };
 struct shared_data* sh_data;
 struct msgbuf{
-  long mtype; //to who
-  int mode; //mode
-  pid_t mpid; //from who
+  long mtype;
+  pid_t mpid;
 };
 struct msgbuf msg;
 void init();
